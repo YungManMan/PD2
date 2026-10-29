@@ -6,10 +6,26 @@
     <h1>Detailed Trades</h1>
   </div>
 
+  <form class="stock-selector" method="get" action="/trades">
+    {% for index in range(1, 4) %}
+    <label>
+      Stock {{ index }}
+      <select name="stock_{{ index }}">
+        <option value="">-- Select a stock --</option>
+        {% for ticker in all_tickers %}
+        <option value="{{ ticker }}" {% if selected_tickers[index - 1] == ticker %}selected{% endif %}>{{ ticker }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endfor %}
+    <button type="submit">Update Portfolio</button>
+  </form>
+
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
+          <th>Stock</th>
           <th>Buy Date</th>
           <th>Buy Price</th>
           <th>Sell Date</th>
@@ -22,6 +38,7 @@
       <tbody>
         {% for trade in trades %}
         <tr>
+          <td>{{ trade.Ticker }}</td>
           <td>{{ trade.BuyDate }}</td>
           <td>{{ trade.BuyPrice }}</td>
           <td>{{ trade.SellDate }}</td>

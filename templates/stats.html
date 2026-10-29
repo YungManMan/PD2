@@ -3,10 +3,33 @@
 {% block content %}
 <section class="panel">
   <div class="section-header">
-    <h1>Trade Statistics</h1>
+    <h1>Portfolio Statistics</h1>
   </div>
 
+  <form class="stock-selector" method="get" action="/stats">
+    {% for index in range(1, 4) %}
+    <label>
+      Stock {{ index }}
+      <select name="stock_{{ index }}">
+        <option value="">-- Select a stock --</option>
+        {% for ticker in all_tickers %}
+        <option value="{{ ticker }}" {% if selected_tickers[index - 1] == ticker %}selected{% endif %}>{{ ticker }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endfor %}
+    <button type="submit">Update Portfolio</button>
+  </form>
+
   <div class="stats-grid">
+    <div class="stat-card">
+      <span class="label">Selected Stocks</span>
+      <strong>{{ selected_tickers | join(', ') }}</strong>
+    </div>
+    <div class="stat-card">
+      <span class="label">Total Portfolio Return</span>
+      <strong>{{ summary.portfolio_return }}%</strong>
+    </div>
     <div class="stat-card">
       <span class="label">Total Trades</span>
       <strong>{{ summary.total_trades }}</strong>
@@ -39,6 +62,29 @@
       <span class="label">Max Holding Period</span>
       <strong>{{ summary.max_period }}</strong>
     </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Stock</th>
+          <th>Trades</th>
+          <th>Winning Trades</th>
+          <th>Average Profit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stock in stock_summaries %}
+        <tr>
+          <td>{{ stock.ticker }}</td>
+          <td>{{ stock.total_trades }}</td>
+          <td>{{ stock.winning_trades }}</td>
+          <td>{{ stock.average_profit }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </section>
 {% endblock %}

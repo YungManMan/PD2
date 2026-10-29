@@ -3,8 +3,34 @@
 {% block content %}
 <section class="panel">
   <div class="section-header">
-    <h1>Price Chart</h1>
+    <h1>Portfolio Price Chart</h1>
   </div>
+
+  <form class="stock-selector" method="get" action="/">
+    {% for index in range(1, 4) %}
+    <label>
+      Stock {{ index }}
+      <select name="stock_{{ index }}">
+        <option value="">-- Select a stock --</option>
+        {% for ticker in all_tickers %}
+        <option value="{{ ticker }}" {% if selected_tickers[index - 1] == ticker %}selected{% endif %}>{{ ticker }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endfor %}
+    <button type="submit">Update Portfolio</button>
+  </form>
+
+  <div class="portfolio-summary">
+    <strong>Selected Stocks:</strong>
+    {% if selected_tickers %}
+      {{ selected_tickers | join(', ') }}
+    {% else %}
+      MSFT
+    {% endif %}
+    <span class="portfolio-return">Total Portfolio Return: {{ summary.portfolio_return }}%</span>
+  </div>
+
   <canvas id="priceChart" height="90"></canvas>
 </section>
 
@@ -12,52 +38,50 @@
   const chartData = {{ chart_data | tojson }};
   const buyPoints = {{ buy_points | tojson }};
   const sellPoints = {{ sell_points | tojson }};
+  const selectedTickers = {{ selected_tickers | tojson }};
 
   const labels = chartData.map(row => row.Date);
-  const closeData = chartData.map(row => row.Close);
-  const ma50Data = chartData.map(row => row.MA50);
-  const ma200Data = chartData.map(row => row.MA200);
+  const colors = ['#2563eb', '#10b981', '#f59e0b'];
 
-  const buyMap = new Map(buyPoints.map(point => [point.date, point.price]));
-  const sellMap = new Map(sellPoints.map(point => [point.date, point.price]));
+  const datasets = selectedTickers.map((ticker, index) => ({
+    label: ticker,
+    data: chartData.map(row => row[ticker] ?? null),
+    borderColor: colors[index % colors.length],
+    backgroundColor: 'rgba(0,0,0,0)',
+    borderWidth: 2,
+    pointRadius: 0,
+    fill: false
+  }));
 
-  const buyDataset = labels.map((label) => buyMap.has(label) ? buyMap.get(label) : null);
-  const sellDataset = labels.map((label) => sellMap.has(label) ? sellMap.get(label) : null);
+  const buyMap = new Map(buyPoints.map(point => [point.date + ':' + point.ticker, point.price]));
+  const sellMap = new Map(sellPoints.map(point => [point.date + ':' + point.ticker, point.price]));
+
+  const buySignals = [];
+  const sellSignals = [];
+
+  selectedTickers.forEach((ticker, tickerIndex) => {
+    const tickerColor = colors[tickerIndex % colors.length];
+    chartData.forEach((row) => {
+      const buyKey = row.Date + ':' + ticker;
+      const sellKey = row.Date + ':' + ticker;
+      if (buyMap.has(buyKey)) {
+        buySignals.push({ x: row.Date, y: buyMap.get(buyKey), ticker: ticker, borderColor: tickerColor });
+      }
+      if (sellMap.has(sellKey)) {
+        sellSignals.push({ x: row.Date, y: sellMap.get(sellKey), ticker: ticker, borderColor: tickerColor });
+      }
+    });
+  });
 
   const ctx = document.getElementById('priceChart');
   new Chart(ctx, {
     type: 'line',
     data: {
       labels: labels,
-      datasets: [
-        {
-          label: 'Close Price',
-          data: closeData,
-          borderColor: '#2563eb',
-          backgroundColor: 'rgba(37, 99, 235, 0.1)',
-          borderWidth: 2,
-          pointRadius: 0,
-          fill: false
-        },
-        {
-          label: 'MA 50',
-          data: ma50Data,
-          borderColor: '#10b981',
-          borderWidth: 1.5,
-          pointRadius: 0,
-          fill: false
-        },
-        {
-          label: 'MA 200',
-          data: ma200Data,
-          borderColor: '#f59e0b',
-          borderWidth: 1.5,
-          pointRadius: 0,
-          fill: false
-        },
+      datasets: datasets.concat([
         {
           label: 'Buy Signals',
-          data: buyDataset,
+          data: buySignals.map(point => ({ x: point.x, y: point.y })),
           borderColor: '#22c55e',
           backgroundColor: '#22c55e',
           pointRadius: 5,
@@ -66,14 +90,14 @@
         },
         {
           label: 'Sell Signals',
-          data: sellDataset,
+          data: sellSignals.map(point => ({ x: point.x, y: point.y })),
           borderColor: '#ef4444',
           backgroundColor: '#ef4444',
           pointRadius: 5,
           pointStyle: 'circle',
           showLine: false
         }
-      ]
+      ])
     },
     options: {
       responsive: true,
@@ -89,6 +113,7 @@
       },
       scales: {
         x: {
+          type: 'category',
           ticks: {
             maxTicksLimit: 12,
             autoSkip: true
